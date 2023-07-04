@@ -46,21 +46,30 @@ fn main() {
     let theatre_ids: Vec<uuid::Uuid> = serde_json::from_str(THEATRE_IDS_JSON).unwrap();
     let language_ids: Vec<uuid::Uuid> = serde_json::from_str(THEATRE_IDS_JSON).unwrap();
 
-    let mut res: Vec<Vec<Hall>> = vec![];
+    let mut res: Vec<(uuid::Uuid, Vec<uuid::Uuid>)> = vec![];
 
     theatre_ids
         .par_iter()
         .map(|x| {
-            serde_json::from_str(&reqwest::get(format!(
-                "{}/api/v1/theatre/{}/hall/all",
-                API_BASE_URL,
-                x.to_string()
-            ))
-            .unwrap()
-            .text()
-            .unwrap()).unwrap()
+            (
+                *x,
+                serde_json::from_str::<Vec<Hall>>(
+                    &reqwest::get(format!("{}/api/v1/theatre/{}/hall/all", API_BASE_URL, x))
+                        .unwrap()
+                        .text()
+                        .unwrap(),
+                )
+                .unwrap()
+                .par_iter()
+                .map(|x| x.id)
+                .collect::<Vec<uuid::Uuid>>(),
+            )
         })
         .collect_into_vec(&mut res);
 
-    // res.par_iter().fold(Vec<String>, ||)
+    std::fs::write(
+        "./theatre_halls_ids.json",
+        serde_json::to_string(&res).unwrap(),
+    )
+    .unwrap();
 }
